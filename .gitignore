@@ -1,8 +1,11 @@
 .DS_Store
 .tmpenv
 .env
+.venv
 .idea
 cfn-submit-output.json
 local/
 rpdk.log
 .idea/
+package-lock.json
+
