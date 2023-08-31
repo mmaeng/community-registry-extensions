@@ -14,7 +14,7 @@ Parameters:
 
   BetaAccountId:
     Type: String
-    Description: AccountId for the beta account, which pushes builds to the prod source bucket 
+    Description: AccountId for the beta account, which pushes builds to the prod source bucket
 
   ProdAccountId:
     Type: String
@@ -26,6 +26,10 @@ Parameters:
 
 Conditions:
 
+  IsAlpha: !Equals
+    - !Ref Env
+    - alpha
+
   IsBeta: !Equals
     - !Ref Env
     - beta
@@ -33,6 +37,11 @@ Conditions:
   IsProd: !Equals
     - !Ref Env
     - prod
+
+  IsNotProd: !Not
+    - !Equals
+      - !Ref Env
+      - prod
 
 Resources:
 
@@ -56,17 +65,56 @@ Resources:
           - Sid: BetaProdCrossAccount
             Effect: Allow
             Principal:
-              AWS: 
+              AWS:
                 - !Sub "arn:aws:iam::${ProdAccountId}:root"
-            Action: 
+            Action:
               - s3:Put*
               - s3:Get*
               - s3:List*
-            Resource: 
+            Resource:
               - !Sub "arn:aws:s3:::cep-${Env}-${AWS::AccountId}-artifacts"
-              - !Sub "arn:aws:s3:::cep-${Env}-${AWS::AccountId}-artifacts/*" 
+              - !Sub "arn:aws:s3:::cep-${Env}-${AWS::AccountId}-artifacts/*"
 
   S3BucketVersioningEnabledBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  S3PublicAccessControlsRestrictedBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  KMSEncryptionSettingsBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  HookEC2SecurityGroupRestrictedSSHBuildProjectRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -118,6 +166,71 @@ Resources:
       ManagedPolicyArns:
         - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
 
+  ResourceLookupBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  DynamoDBItemBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  TimeStaticBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  TimeSleepBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  TimeOffsetBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
   CloudFrontWebAclAssociationBuildProjectRole:
     Type: AWS::IAM::Role
     Properties:
@@ -130,8 +243,98 @@ Resources:
         Version: '2012-10-17'
       ManagedPolicyArns:
         - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  S3BucketModuleBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
   
+  SSMDocumentEBSVolumeModuleBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - ssm:ListDocuments
+            - ssm:ListDocumentVersions
+            - ssm:DescribeDocument
+            - ssm:DeleteDocument
+            - ssm:GetDocument
+            Effect: Allow
+            Resource: "*"
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+    
+  IotAnalyticsPipelineModuleBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - iotanalytics:*
+            - iot:CreateTopicRule
+            - iot:DeleteTopicRule
+            - iot:ReplaceTopicRule
+            - iot:ListTopicRules
+            - iot:GetTopicRule
+            - iot:EnableTopicRule
+            - iot:DisableTopicRule
+            - iot:CreateTopicRuleDestination
+            - iot:DeleteTopicRuleDestination
+            - iot:UpdateTopicRuleDestination
+            - iot:GetTopicRuleDestination
+            - iot:ConfirmTopicRuleDestination
+            - iot:ListTopicRuleDestinations
+            Effect: Allow
+            Resource: "*"
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  CloudFrontS3WebsiteModuleBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
   ResourceIamPasswordPolicyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  ApplicationAutoscalingScheduledActionBuildProjectRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -174,6 +377,17 @@ Resources:
               - sqs:SetQueueAttributes
             Effect: Allow
             Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt S3BucketNotificationBuildProject.Arn
         Version: '2012-10-17'
       PolicyName: bucket-notification-build-project-policy
       Roles:
@@ -200,10 +414,244 @@ Resources:
               - s3:ListBucketVersions
             Effect: Allow
             Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt S3DeleteBucketContentsBuildProject.Arn
         Version: '2012-10-17'
       PolicyName: delete-bucket-contents-build-project-policy
       Roles:
         - !Ref S3DeleteBucketContentsBuildProjectRole
+
+  ResourceLookupBuildProjectPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+            - cloudformation:GetResource
+            - cloudformation:ListResources
+            - cloudformation:ListExports
+            - iam:PassRole
+            - ssm:AddTagsToResource
+            - ssm:DeleteParameter
+            - ssm:DescribeParameters
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - ssm:ListTagsForResource
+            - ssm:PutParameter
+            - ssm:RemoveTagsFromResource
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - iam:AttachRolePolicy
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:DetachRolePolicy
+              - iam:GetPolicy
+              - iam:GetPolicyVersion
+              - iam:GetRole
+              - iam:ListAttachedRolePolicies
+              - iam:ListEntitiesForPolicy
+              - iam:ListPolicies
+              - iam:ListPolicyTags
+              - iam:ListPolicyVersions
+              - iam:ListRolePolicies
+              - iam:ListRoleTags
+              - iam:ListRoles
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/awscommunity-resource-lookup-*-*-*'
+          - Effect: Allow
+            Action:
+              - ec2:AssociateVpcCidrBlock
+              - ec2:CreateTags
+              - ec2:CreateVpc
+              - ec2:DeleteTags
+              - ec2:DeleteVpc
+              - ec2:DescribeVpcAttribute
+              - ec2:DescribeVpcs
+              - ec2:DisassociateVpcCidrBlock
+              - ec2:ModifyVpcAttribute
+              - ec2:ModifyVpcTenancy
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: resource-lookup-build-project-policy
+      Roles:
+        - !Ref ResourceLookupBuildProjectRole
+
+  DynamoDBItemBuildProjectPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - dynamodb:*
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt DynamoDBItemBuildProject.Arn
+        Version: '2012-10-17'
+      PolicyName: dynamodb-item-build-project-policy
+      Roles:
+        - !Ref DynamoDBItemBuildProjectRole
+
+  CloudFrontS3WebsiteBuildProjectPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: cloudfront:*
+            Effect: Allow
+            Resource: "*"
+          - Action: acm:*
+            Effect: Allow
+            Resource: "*"
+          - Action: s3:*
+            Effect: Allow
+            Resource: "*"
+          - Action: route53:*
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt CloudFrontS3WebsiteModuleBuildProject.Arn
+        Version: '2012-10-17'
+      PolicyName: cloudfront-s3-website-build-project-policy
+      Roles:
+        - !Ref CloudFrontS3WebsiteModuleBuildProjectRole
+  
+  TimeStaticBuildProjectRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - dynamodb:*
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt TimeStaticBuildProject.Arn
+          - Action:
+              - ssm:DeleteParameter
+              - ssm:GetParameter
+              - ssm:PutParameter
+            Effect: Allow
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: delete-bucket-contents-build-project-policy
+      Roles:
+        - !Ref TimeStaticBuildProjectRole
+
+  TimeSleepBuildProjectRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - dynamodb:*
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt TimeSleepBuildProject.Arn
+          - Action:
+              - ssm:DeleteParameter
+              - ssm:GetParameter
+              - ssm:PutParameter
+            Effect: Allow
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: delete-bucket-contents-build-project-policy
+      Roles:
+        - !Ref TimeSleepBuildProjectRole
+
+  TimeOffsetBuildProjectRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - dynamodb:*
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt TimeOffsetBuildProject.Arn
+          - Action:
+              - ssm:DeleteParameter
+              - ssm:GetParameter
+              - ssm:PutParameter
+            Effect: Allow
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: delete-bucket-contents-build-project-policy
+      Roles:
+        - !Ref TimeOffsetBuildProjectRole
 
   CloudFrontWebAclAssociationBuildProjectPolicy:
     Type: AWS::IAM::Policy
@@ -243,11 +691,22 @@ Resources:
               - s3:DeleteBucketPolicy
             Effect: Allow
             Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt CloudFrontWebAclAssociationBuildProject.Arn
         Version: '2012-10-17'
       PolicyName: cloudfront-webacl-association-build-project-policy
       Roles:
         - !Ref CloudFrontWebAclAssociationBuildProjectRole
-  
+
   ResourceIamPasswordPolicyPolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -272,10 +731,194 @@ Resources:
               - s3:DeleteBucketPolicy
             Effect: Allow
             Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt IamPasswordPolicyBuildProject.Arn
         Version: '2012-10-17'
       PolicyName: cloudfront-webacl-association-build-project-policy
       Roles:
         - !Ref ResourceIamPasswordPolicyRole
+
+  HookEC2SecurityGroupRestrictedSSHBuildProjectRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:*VPC*
+              - ec2:*SecurityGroup*
+            Effect: Allow
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: SecurityGroupPermissions
+      Roles:
+        - !Ref HookEC2SecurityGroupRestrictedSSHBuildProjectRole
+
+  KMSEncryptionSettingsBuildProjectPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:DescribeImages
+              - ec2:DescribeInstances
+              - ec2:GetEbsEncryptionByDefault
+            Resource: "*"
+          - !If
+            - IsBeta
+            - Effect: Deny
+              Action:
+                - kms:*CustomKeyStore
+                - kms:CancelKeyDeletion
+                - kms:CreateAlias
+                - kms:Delete*
+                - kms:DeleteAlias
+                - kms:DisableKey*
+                - kms:Put*
+                - kms:ScheduleKeyDeletion
+                - kms:Update*
+              Resource: !GetAtt PipelineKey.Arn
+            - !Ref AWS::NoValue
+          - Effect: Allow
+            Action:
+              - kms:CancelKeyDeletion
+              - kms:Create*
+              - kms:CreateKey
+              - kms:Decrypt
+              - kms:Delete*
+              - kms:Describe*
+              - kms:Disable*
+              - kms:Enable*
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:Get*
+              - kms:List*
+              - kms:Put*
+              - kms:ReEncrypt*
+              - kms:Revoke*
+              - kms:ScheduleKeyDeletion
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:Update*
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - application-autoscaling:*
+              - autoscaling:*
+              - dynamodb:*
+              - ec2:*Instance*
+              - ec2:*LaunchTemplate*
+              - ec2:*SecurityGroup*
+              - ec2:*Tags
+              - ec2:*Volume*
+              - ec2:Describe*
+              - ec2:GetEbsDefaultKmsKeyId
+              - elasticfilesystem:*
+              - kinesis:*
+              - lambda:*
+              - rds:*
+              - redshift:*
+              - s3:*
+              - secretsmanager:GetRandomPassword
+              - sns:*
+              - sqs:*
+              - ssm:GetParameters
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - logs:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:*CloudTrailTrailEmptyIntegS3PrefixCleanup:*'
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:*integ-*-awscommunity-kms-encryptionsettings*:*'
+          - Effect: Allow
+            Action:
+              - secretsmanager:*
+            Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:*Secret-integ-*-awscommunity-kms-encryptionsettings*'
+          - Effect: Allow
+            Action:
+              - secretsmanager:*
+            Resource: "*"
+            Condition:
+              StringLike:
+                secretsmanager:Name: '*Secret-integ-*-awscommunity-kms-encryptionsettings*'
+          - Effect: Allow
+            Action:
+              - cloudtrail:*
+            Resource: !Sub 'arn:${AWS::Partition}:cloudtrail:*:${AWS::AccountId}:trail/Trail-integ-*-awscommunity-kms-encryptionsettings-*'
+          - Effect: Allow
+            Action:
+              - iam:AttachRolePolicy
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:DetachRolePolicy
+              - iam:GetPolicy
+              - iam:GetPolicyVersion
+              - iam:GetRole
+              - iam:ListAttachedRolePolicies
+              - iam:ListEntitiesForPolicy
+              - iam:ListPolicies
+              - iam:ListPolicyTags
+              - iam:ListPolicyVersions
+              - iam:ListRolePolicies
+              - iam:ListRoleTags
+              - iam:ListRoles
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/TrailS3Cleanup-integ-*-awscommunity-kms-encryptionsettings'
+          - Effect: Allow
+            Action: 
+              - iam:CreateServiceLinkedRole
+              - iam:DeleteServiceLinkedRole
+              - iam:GetServiceLinkedRoleDeletionStatus
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: kms-encryptionsettings-build-project-policy
+      Roles:
+        - !Ref KMSEncryptionSettingsBuildProjectRole
+
+  ApplicationAutoscalingScheduledActionBuildProjectRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt ApplicationAutoscalingScheduledActionBuildProject.Arn
+          - Action:
+              - application-autoscaling:*
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - dynamodb:*
+            Effect: Allow
+            Resource: !Sub "arn:aws:dynamodb:*:${AWS::AccountId}:table/awscommunityscheduledactiontesttable"
+          - Action: 
+              - iam:CreateServiceLinkedRole
+            Effect: Allow
+            Resource: "*"
+        Version: '2012-10-17'
+      PolicyName: application-autoscaling-scheduledaction-build-project-policy
+      Roles:
+        - !Ref ApplicationAutoscalingScheduledActionBuildProjectRole
 
   S3BucketNotificationBuildProject:
     Type: AWS::CodeBuild::Project
@@ -297,6 +940,7 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
 
   IamPasswordPolicyBuildProject:
     Type: AWS::CodeBuild::Project
@@ -318,6 +962,7 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
 
   CloudFrontWebAclAssociationBuildProject:
     Type: AWS::CodeBuild::Project
@@ -339,11 +984,12 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
 
   S3DeleteBucketContentsBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub "${PrefixLower}-${Env}-s3-deletebucketcontents"
+      Name: !Sub "${PrefixLower}-${Env}-s3-delete-bucket-contents"
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -360,6 +1006,117 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
+
+  ResourceLookupBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-resource-lookup"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt ResourceLookupBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-java.yml"
+      TimeoutInMinutes: 480
+
+  DynamoDBItemBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-dynamodb-item"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt DynamoDBItemBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
+
+  TimeStaticBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-time-static"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt TimeStaticBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-go.yml"
+      TimeoutInMinutes: 480
+
+  TimeSleepBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-time-sleep"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt TimeSleepBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-go.yml"
+      TimeoutInMinutes: 480
+
+  TimeOffsetBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-time-offset"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt TimeOffsetBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-go.yml"
+      TimeoutInMinutes: 480
 
   S3BucketVersioningEnabledBuildProject:
     Type: AWS::CodeBuild::Project
@@ -381,6 +1138,51 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub "hooks/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
+
+  S3PublicAccessControlsRestrictedBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-s3-publicaccesscontrolsrestricted"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: HOOK_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-hook"
+      ServiceRole: !GetAtt S3PublicAccessControlsRestrictedBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "hooks/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
+
+  HookEC2SecurityGroupRestrictedSSHBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-ec2-securitygrouprestrictedssh"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: HOOK_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-hook"
+      ServiceRole: !GetAtt HookEC2SecurityGroupRestrictedSSHBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "hooks/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
 
   CloudFrontLoggingEnabledBuildProject:
     Type: AWS::CodeBuild::Project
@@ -402,6 +1204,210 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub "hooks/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
+
+  S3BucketModuleBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-s3-bucket-module"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: MODULE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-module"
+      ServiceRole: !GetAtt S3BucketModuleBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "modules/${Env}-buildspec.yml"
+      TimeoutInMinutes: 480
+
+  CloudFrontS3WebsiteModuleBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-cloudfront-s3-module"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: MODULE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-module"
+        - Name: ACM_CERTIFICATE_ARN
+          Type: PARAMETER_STORE
+          Value: "cep-acm-certificate-arn"
+        - Name: HOSTED_ZONE_ID
+          Type: PARAMETER_STORE
+          Value: "cep-hosted-zone-id"
+        - Name: ALIAS
+          Type: PARAMETER_STORE
+          Value: "cep-cloudfront-s3-alias"
+      ServiceRole: !GetAtt CloudFrontS3WebsiteModuleBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "modules/${Env}-buildspec.yml"
+      TimeoutInMinutes: 480
+  
+  SSMDocumentEBSVolumeModuleBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-ssm-document-ebsvolume-module"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: MODULE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-module"
+      ServiceRole: !GetAtt SSMDocumentEBSVolumeModuleBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "modules/${Env}-buildspec.yml"
+      TimeoutInMinutes: 480
+
+IotAnalyticsPipelineModuleBuildProject:
+  Type: AWS::CodeBuild::Project
+  Properties:
+    Name: !Sub "${PrefixLower}-${Env}-iot-analytics-pipeline-module"
+    Artifacts:
+      Type: CODEPIPELINE
+    Environment:
+      ComputeType: BUILD_GENERAL1_LARGE
+      Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+      ImagePullCredentialsType: SERVICE_ROLE
+      PrivilegedMode: true
+      Type: LINUX_CONTAINER
+      EnvironmentVariables:
+      - Name: MODULE_PATH
+        Type: PLAINTEXT
+        Value: "placeholder-for-path-to-module"
+    ServiceRole: !GetAtt IotAnalyticsPipelineModuleBuildProjectRole.Arn
+    Source:
+      Type: CODEPIPELINE
+      BuildSpec: !Sub "modules/${Env}-buildspec.yml"
+    TimeoutInMinutes: 480
+
+  AlternateContactBuildProjectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - Fn::ImportValue: !Sub "cep-${Env}-common-build-project-policy"
+
+  AlternateContactBuildProjectPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - account:GetAlternateContact
+              - account:PutAlternateContact
+              - account:DeleteAlternateContact
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
+            Effect: Allow
+            Resource:
+              - !GetAtt AlternateContactBuildProject.Arn
+        Version: '2012-10-17'
+      PolicyName: alternate-contact-build-project-policy
+      Roles:
+        - !Ref AlternateContactBuildProjectRole
+
+  AlternateContactBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-alternate-contact"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt AlternateContactBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
+
+  KMSEncryptionSettingsBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-kms-encryptionsettings"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: HOOK_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-hook"
+      ServiceRole: !GetAtt KMSEncryptionSettingsBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "hooks/${Env}-buildspec-java.yml"
+      TimeoutInMinutes: 480
+
+  ApplicationAutoscalingScheduledActionBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${PrefixLower}-${Env}-app-autosc-sched"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/cep-cicd:latest"
+        ImagePullCredentialsType: SERVICE_ROLE
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: RESOURCE_PATH
+          Type: PLAINTEXT
+          Value: "placeholder-for-path-to-resource"
+      ServiceRole: !GetAtt ApplicationAutoscalingScheduledActionBuildProjectRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub "resources/${Env}-buildspec-python.yml"
+      TimeoutInMinutes: 480
 
   SourceBucket:
     Type: AWS::S3::Bucket
@@ -409,7 +1415,7 @@ Resources:
       Comment: The name is important here since it gets constructed by the webhook handler and CodeBuild job to drop the build into the correct bucket. We only use a one webhook for AwsCommunity and 3rd parties like Okta.
     Properties:
       BucketName: !Sub "cep-source-${AWS::AccountId}-${Env}-${PrefixLower}"
-      VersioningConfiguration: 
+      VersioningConfiguration:
         Status: Enabled
 
   PipelineRole:
@@ -428,7 +1434,7 @@ Resources:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: extension-pipeline-policy
-      Roles: 
+      Roles:
         - !Ref PipelineRole
       PolicyDocument:
         Statement:
@@ -458,13 +1464,32 @@ Resources:
           - Action:
               - codebuild:StartBuild
               - codebuild:BatchGetBuilds
+              - codebuild:StopBuild
+              - codebuild:RetryBuild
+              - codebuild:StartBuildBatch
+              - codebuild:RetryBuildBatch
+              - codebuild:StopBuildBatch
             Effect: Allow
-            Resource: 
+            Resource:
+              - !GetAtt HookEC2SecurityGroupRestrictedSSHBuildProject.Arn
               - !GetAtt S3BucketNotificationBuildProject.Arn
               - !GetAtt S3DeleteBucketContentsBuildProject.Arn
+              - !GetAtt ResourceLookupBuildProject.Arn
+              - !GetAtt DynamoDBItemBuildProject.Arn
               - !GetAtt S3BucketVersioningEnabledBuildProject.Arn
+              - !GetAtt S3PublicAccessControlsRestrictedBuildProject.Arn
+              - !GetAtt TimeStaticBuildProject.Arn
+              - !GetAtt TimeSleepBuildProject.Arn
+              - !GetAtt TimeOffsetBuildProject.Arn
               - !GetAtt CloudFrontLoggingEnabledBuildProject.Arn
               - !GetAtt CloudFrontWebAclAssociationBuildProject.Arn
+              - !GetAtt S3BucketModuleBuildProject.Arn
+              - !GetAtt CloudFrontS3WebsiteModuleBuildProject.Arn
+              - !GetAtt SSMDocumentEBSVolumeModuleBuildProject.Arn
+              - !GetAtt IotAnalyticsPipelineModuleBuildProject.Arn
+              - !GetAtt AlternateContactBuildProject.Arn
+              - !GetAtt KMSEncryptionSettingsBuildProject.Arn
+              - !GetAtt ApplicationAutoscalingScheduledActionBuildProject.Arn
           - Action:
               - kms:*
             Effect: Allow
@@ -476,16 +1501,16 @@ Resources:
 
   PipelineKey:
     Type: AWS::KMS::Key
-    Metadata: 
+    Metadata:
       Comment: Required for cross account deployment from beta CodePipeline to the prod bucket
     Condition: IsBeta
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
-    Properties: 
+    Properties:
       Description: This key is used by the CEP beta build process to deploy builds to the prod bucket
-      KeyPolicy: 
+      KeyPolicy:
         Statement:
-          - Action: 
+          - Action:
               - kms:Create*
               - kms:Describe*
               - kms:Enable*
@@ -502,27 +1527,41 @@ Resources:
               - kms:TagResource
               - kms:UntagResource
             Effect: Allow
-            Principal: 
-              AWS: 
+            Principal:
+              AWS:
                 - !Sub "arn:aws:iam::${ProdAccountId}:root"
                 - !Sub "arn:aws:iam::${AWS::AccountId}:role/Admin"
             Resource: "*"
-          - Action: 
+          - Action:
               - kms:Encrypt
               - kms:Decrypt
               - kms:ReEncrypt
               - kms:GenerateDataKey*
               - kms:DescribeKey
             Effect: Allow
-            Principal: 
-              AWS: 
+            Principal:
+              AWS:
                 - !GetAtt PipelineRole.Arn
                 - !Sub "arn:aws:iam::${ProdAccountId}:root"
+                - !GetAtt HookEC2SecurityGroupRestrictedSSHBuildProjectRole.Arn
                 - !GetAtt S3BucketNotificationBuildProjectRole.Arn
                 - !GetAtt S3DeleteBucketContentsBuildProjectRole.Arn
+                - !GetAtt ResourceLookupBuildProjectRole.Arn
+                - !GetAtt DynamoDBItemBuildProjectRole.Arn
                 - !GetAtt S3BucketVersioningEnabledBuildProjectRole.Arn
+                - !GetAtt S3PublicAccessControlsRestrictedBuildProjectRole.Arn
+                - !GetAtt TimeStaticBuildProjectRole.Arn
+                - !GetAtt TimeSleepBuildProjectRole.Arn
+                - !GetAtt TimeOffsetBuildProjectRole.Arn
+                - !GetAtt AlternateContactBuildProjectRole.Arn
                 - !GetAtt CloudFrontLoggingEnabledBuildProjectRole.Arn
                 - !GetAtt CloudFrontWebAclAssociationBuildProjectRole.Arn
+                - !GetAtt S3BucketModuleBuildProjectRole.Arn
+                - !GetAtt CloudFrontS3WebsiteModuleBuildProjectRole.Arn
+                - !GetAtt SSMDocumentEBSVolumeModuleBuildProjectRole.Arn
+                - !GetAtt IotAnalyticsPipelineModuleBuildProjectRole.Arn
+                - !GetAtt KMSEncryptionSettingsBuildProjectRole.Arn
+                - !GetAtt ApplicationAutoscalingScheduledActionBuildProjectRole.Arn
             Resource: "*"
       MultiRegion: true
 
@@ -560,33 +1599,36 @@ Resources:
                 Owner: AWS
                 Provider: S3
                 Version: 1
-              Configuration: 
+              Configuration:
                 S3Bucket: !Ref SourceBucket
-                S3ObjectKey: "source.zip" 
+                S3ObjectKey: "source.zip"
                 PollForSourceChanges: true
               OutputArtifacts:
-                - Name: extensions-source 
+                - Name: extensions-source
         - Name: Build
           Actions:
-            #- Name: BucketNotification
-            #  InputArtifacts:
-            #    - Name: extensions-source
-            #  ActionTypeId:
-            #    Category: Build
-            #    Owner: AWS
-            #    Provider: CodeBuild
-            #    Version: 1
-            #  Configuration:
-            #    ProjectName: !Ref S3BucketNotificationBuildProject
-            #    EnvironmentVariables: |-
-            #      [
-            #        {
-            #          "name": "RESOURCE_PATH",
-            #          "type": "PLAINTEXT",
-            #          "value": "resources/S3_BucketNotification"
-            #        }
-            #      ]
-            #  RunOrder: 2
+            - !If
+              - IsNotProd
+              - Name: BucketNotification
+                InputArtifacts:
+                  - Name: extensions-source
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Provider: CodeBuild
+                  Version: 1
+                Configuration:
+                  ProjectName: !Ref S3BucketNotificationBuildProject
+                  EnvironmentVariables: |-
+                    [
+                      {
+                        "name": "RESOURCE_PATH",
+                        "type": "PLAINTEXT",
+                        "value": "resources/S3_BucketNotification"
+                      }
+                    ]
+                RunOrder: 2
+              - !Ref AWS::NoValue
                 #            - Name: CloudFrontWebAclAssociation
                 #              InputArtifacts:
                 #                - Name: extensions-source
@@ -624,6 +1666,311 @@ Resources:
                       "value": "resources/S3_DeleteBucketContents"
                     }
                   ]
+              RunOrder: 2
+            - Name: ResourceLookup
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref ResourceLookupBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/Resource_Lookup"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: DynamoDBItem
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref DynamoDBItemBuildProject
+                # BatchEnabled:
+                #   !If
+                #     - IsProd
+                #     - true
+                #     - false
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/DynamoDB_Item"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: TimeStatic
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref TimeStaticBuildProject
+                # BatchEnabled:
+                #   !If
+                #     - IsProd
+                #     - true
+                #     - false
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/Time_Static"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: TimeSleep
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref TimeSleepBuildProject
+                # BatchEnabled:
+                #   !If
+                #     - IsProd
+                #     - true
+                #     - false
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/Time_Sleep"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: TimeOffset
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref TimeOffsetBuildProject
+                # BatchEnabled:
+                #   !If
+                #     - IsProd
+                #     - true
+                #     - false
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/Time_Offset"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: Account_AlternateContact
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref AlternateContactBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/Account_AlternateContact"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: S3BucketModule
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref S3BucketModuleBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "MODULE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "modules/S3_Bucket"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: CloudFrontS3Website
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref CloudFrontS3WebsiteModuleBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "MODULE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "modules/CloudFront_S3Website"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: SSMDocumentEBSVolumeModule
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref SSMDocumentEBSVolumeModuleBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "MODULE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "modules/SSM_Document_ResizeVolume"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: IotAnalyticsPipelineModule
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref IotAnalyticsPipelineModuleBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "MODULE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "modules/IOT_ANALYTICS_PIPELINE"
+                    }
+                  ]
+              RunOrder: 2
+            - Name: S3BucketVersioningEnabled
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref S3BucketVersioningEnabledBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "HOOK_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "hooks/S3_BucketVersioningEnabled"
+                    }
+                  ]
+              RunOrder: 3
+            - Name: HookEC2SecurityGroupRestrictedSSH
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref HookEC2SecurityGroupRestrictedSSHBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "HOOK_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "hooks/EC2_SecurityGroupRestrictedSSH"
+                    }
+                  ]
+              RunOrder: 3
+            - Name: HookS3PublicAccessControlsRestricted
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref S3PublicAccessControlsRestrictedBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "HOOK_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "hooks/S3_PublicAccessControlsRestricted"
+                    }
+                  ]
+              RunOrder: 4
+            - Name: KMSEncryptionSettings
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref KMSEncryptionSettingsBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "HOOK_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "hooks/KMS_EncryptionSettings"
+                    }
+                  ]
+              RunOrder: 4
+            - Name: ApplicationAutoscalingScheduledAction
+              InputArtifacts:
+                - Name: extensions-source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref ApplicationAutoscalingScheduledActionBuildProject
+                EnvironmentVariables: |-
+                  [
+                    {
+                      "name": "RESOURCE_PATH",
+                      "type": "PLAINTEXT",
+                      "value": "resources/ApplicationAutoscaling_ScheduledAction"
+                    }
+                  ]
               RunOrder: 1
         - !If
           - IsBeta
@@ -631,7 +1978,7 @@ Resources:
             Actions:
               - Name: Copy
                 RoleArn: !Sub "arn:aws:iam::${ProdAccountId}:role/community-registry-extensions-publish-role"
-                InputArtifacts: 
+                InputArtifacts:
                   - Name: extensions-source
                 ActionTypeId:
                   Category: Deploy
@@ -644,25 +1991,6 @@ Resources:
                   ObjectKey: source.zip
                   KMSEncryptionKeyARN: !GetAtt PipelineKey.Arn
           - !Ref AWS::NoValue
-                #            - Name: S3BucketVersioningEnabled
-                #              InputArtifacts:
-                #                - Name: extensions-source
-                #              ActionTypeId:
-                #                Category: Build
-                #                Owner: AWS
-                #                Provider: CodeBuild
-                #                Version: 1
-                #              Configuration:
-                #                ProjectName: !Ref S3BucketVersioningEnabledBuildProject
-                #                EnvironmentVariables: |-
-                #                  [
-                #                    {
-                #                      "name": "HOOK_PATH",
-                #                      "type": "PLAINTEXT",
-                #                      "value": "hooks/S3_BucketVersioningEnabled"
-                #                    }
-                #                  ]
-                #              RunOrder: 2
                 #            - Name: CloudFrontLoggingEnabled
                 #              InputArtifacts:
                 #                - Name: extensions-source
@@ -673,6 +2001,7 @@ Resources:
                 #                Version: 1
                 #              Configuration:
                 #                ProjectName: !Ref CloudFrontLoggingEnabledBuildProject
+                #                BatchEnabled: true
                 #                EnvironmentVariables: |-
                 #                  [
                 #                    {
@@ -709,7 +2038,7 @@ Resources:
               -
                 Effect: Allow
                 Action: s3:PutObject
-                Resource: 
+                Resource:
                   - !Sub "arn:aws:s3:::cep-source-${ProdAccountId}-prod-${PrefixLower}"
                   - !Sub "arn:aws:s3:::cep-source-${ProdAccountId}-prod-${PrefixLower}/*"
 
@@ -721,12 +2050,12 @@ Resources:
     Properties:
       TopicName: !Sub "${PrefixLower}-${Env}-pipeline-topic"
       Subscription:
-        - Endpoint: !Ref NotificationEmail 
+        - Endpoint: !Ref NotificationEmail
           Protocol: email
 
   WaitForPipelinePolicy:
     Type: Custom::Delay
-    DependsOn: 
+    DependsOn:
       - PipelinePolicy
     Properties:
       ServiceToken: !GetAtt DelayFunction.Arn
@@ -734,7 +2063,7 @@ Resources:
 
   WaitForPipeline:
     Type: Custom::Delay
-    DependsOn: 
+    DependsOn:
       - Pipeline
     Properties:
       ServiceToken: !GetAtt DelayFunction.Arn
@@ -742,7 +2071,7 @@ Resources:
 
   WaitForTopic:
     Type: Custom::Delay
-    DependsOn: 
+    DependsOn:
       - PipelineTopic
       - PipelineTopicPolicy
     Properties:
@@ -797,13 +2126,13 @@ Resources:
     DependsOn: WaitForTopic
     Properties:
       Description: Watch for pipeline success and failure
-      EventPattern: 
+      EventPattern:
         source:
           - aws.codepipeline
         detail-type:
           - CodePipeline Pipeline Execution State Change
         detail:
-          pipeline: 
+          pipeline:
             - !Ref Pipeline
           state:
             - SUCCEEDED
@@ -835,11 +2164,11 @@ Resources:
           - Sid: BetaAccountPut
             Effect: Allow
             Principal:
-              AWS: 
+              AWS:
                 - !Sub "arn:aws:iam::${BetaAccountId}:root"
                 - !GetAtt PublishCrossAccountRole.Arn
             Action: s3:PutObject
-            Resource: 
+            Resource:
               - !Sub "arn:aws:s3:::cep-source-${ProdAccountId}-prod-${PrefixLower}"
               - !Sub "arn:aws:s3:::cep-source-${ProdAccountId}-prod-${PrefixLower}/*"
 
@@ -907,12 +2236,12 @@ Resources:
           - Action:
               - codebuild:*
             Effect: Allow
-            Resource: "*" 
+            Resource: "*"
           - Action:
               - codepipeline:*
             Effect: Allow
             Resource: "*"
-          - Action: 
+          - Action:
               - s3:*
             Effect: Allow
             Resource: "*"
@@ -966,16 +2295,16 @@ Resources:
                   - !Sub "arn:aws:s3:::cep-source-${ProdAccountId}-prod-${PrefixLower}/*"
                   - !Sub "arn:aws:s3:::cep-beta-${BetaAccountId}-artifacts"
                   - !Sub "arn:aws:s3:::cep-beta-${BetaAccountId}-artifacts/*"
-              - Action: 
+              - Action:
                   - kms:Encrypt
                   - kms:Decrypt
                   - kms:ReEncrypt
                   - kms:GenerateDataKey*
                   - kms:DescribeKey
                 Effect: Allow
-                Resource: 
+                Resource:
                   - !Sub "arn:aws:kms:${AWS::Region}:${BetaAccountId}:key/*"
-              
+
 # Delay Function to solve race conditions where the resource is not actually ready
 
   DelayFunctionRole:
@@ -1012,6 +2341,9 @@ Resources:
       Timeout: 120
       Role: !GetAtt DelayFunctionRole.Arn
       Runtime: python3.7
-      Code: delay.py 
+      Code: !Rain::S3
+        Path: ../delay.py
+        Zip: true
+        BucketProperty: S3Bucket
+        KeyProperty: S3Key
       MemorySize: 1024
-

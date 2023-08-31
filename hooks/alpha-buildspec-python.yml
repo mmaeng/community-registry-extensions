@@ -13,6 +13,7 @@ phases:
       - ENTRY_PATH=$(python scripts/entry.py $HOOK_PATH/.rpdk-config)
       - echo ENTRY_PATH is $ENTRY_PATH
       - cd $HOOK_PATH
+      - pip install git+https://github.com/aws-cloudformation/cloudformation-cli.git@master
       - pip install git+https://github.com/aws-cloudformation/cloudformation-cli-python-plugin.git@master
       - pip install cfn_guard_rs_hook
       - cfn --version
@@ -29,7 +30,7 @@ phases:
       - cfn submit --dry-run
       - nohup sam local start-lambda &
       - sleep 10
-      - cfn test
+      - cfn test --region $AWS_REGION # Region added: https://github.com/aws-cloudformation/cloudformation-cli/issues/625
     finally:
       - cat rpdk.log
 

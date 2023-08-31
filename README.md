@@ -8,8 +8,7 @@ types](https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-
 [modules](https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules.html),
 and
 [hooks](https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/hooks.html).
-Modules are authored as templates in either JSON or YAML. Resource types and
-hooks can be authored in Java, Go, Python, or Typescript, using the
+Modules are authored as templates in either JSON or YAML. Resource types can be authored in Java, Go, Python, or Typescript, using the
 [CloudFormation Command Line Interface (CFN
 CLI)](https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/what-is-cloudformation-cli.html)
 for project setup and testing. 
@@ -39,10 +38,25 @@ first be activated using the instructions
 
 |Name|Type|Version|Description|
 |----|----|-------|-----------|
-|[AwsCommunity::S3::BucketNotification](./resources/S3_BucketNotification)|Resource|Alpha|Configure bucket notifications|
-|[AwsCommunity::S3::DeleteBucketContents](./resources/S3_DeleteBucketContents)|Resource|Alpha|Delete all objects in a bucket|
-|[AwsCommunity::S3::BucketVersioningEnabled](./hooks/S3_BucketVersioningEnabled)|Hook|Alpha|Validate that an AWS::S3::Bucket has versioning enabled|
+|[AwsCommunity::Account::AlternateContact](./resources/Account_AlternateContact)|Resource|Prod|An alternate contact attached to an Amazon Web Services account|
+|[AwsCommunity::ApplicationAutoscaling::ScheduledAction](./resources/ApplicationAutoscaling_ScheduledAction)|Resource|Prod|Application Autoscaling Scheduled Action|
 |[AwsCommunity::CloudFront::LoggingEnabled](./hooks/CloudFront_LoggingEnabled)|Hook|Alpha|Validate that a CloudFront distribution has logging enabled|
+|[AwsCommunity::CloudFront::S3Website::MODULE](./modules/CloudFront_S3Website/)|Module|Prod|CloudFront backed by an S3 bucket with Route53 integration|
+|[AwsCommunity::DynamoDB::Item](./resources/DynamoDB_Item)|Resource|Prod|Manage the lifecycle of items in a DynamoDB table|
+|[AwsCommunity::EC2::SecurityGroupRestrictedSSH](./hooks/EC2_SecurityGroupRestrictedSSH)|Hook|Prod|Restrict SSH traffic from 0.0.0.0/0|
+|[AwsCommunity::KMS::EncryptionSettings](./hooks/KMS_EncryptionSettings)|Hook|Prod|Validates AWS KMS encryption-related, user-provided configuration settings for a number of AWS resources|
+|[AwsCommunity::Resource::Lookup](./resources/Resource_Lookup)|Resource|Prod|Uses AWS Cloud Control API to lookup a resource of a given type (such as, AWS::EC2::VPC)|
+|[AwsCommunity::S3::Bucket::MODULE](./modules/S3_Bucket/)|Module|Prod|Create a standard S3 bucket|
+|[AwsCommunity::SSM::ResizeVolume::MODULE](./modules/SSM_Document_ResizeVolume/)|Module|Prod|Create AWS SSM document to resize EBS volume and grow the filesystem on them|
+|[AwsCommunity::IotAnalytics::Pipeline::MODULE](./modules/IOT_ANALYTICS_PIPELINE/)|Module|Prod|Create an IOT analytics pipeline|
+|[AwsCommunity::S3::BucketAccessControlsRestricted](./hooks/S3_PublicAccessControlsRestricted)|Hook|Prod|Validates S3 Bucket is configured to block public access|
+|[AwsCommunity::S3::BucketNotification](./resources/S3_BucketNotification)|Resource|Alpha|Configure bucket notifications|
+|[AwsCommunity::S3::BucketVersioningEnabled](./hooks/S3_BucketVersioningEnabled)|Hook|Prod|Validate that an AWS::S3::Bucket has versioning enabled|
+|[AwsCommunity::S3::DeleteBucketContents](./resources/S3_DeleteBucketContents)|Resource|Prod|Delete all objects in a bucket|
+|[AwsCommunity::Time::Offset](./resources/Time_Offset)|Resource|Prod|Creates a time based resource with an offset from the provided time or now|
+|[AwsCommunity::Time::Sleep](./resources/Time_Sleep)|Resource|Prod|Sleep a provided number of seconds between create, update, or delete operations.|
+|[AwsCommunity::Time::Static](./resources/Time_Static)|Resource|Prod|Creates a static time stamp|
+
 
 ## Contributing
 
@@ -111,6 +125,17 @@ https://github.com/aws-ia/cloudformation-dynatrace-resource-providers
 
 https://github.com/aws-ia/cloudformation-bigid-resource-providers
 
+### cdk-import
+
+Generates CDK constructs from external sources such as public CloudFormation Registry types and modules (L1s) as well as AWS Service Catalog product versions.
+
+https://github.com/cdklabs/cdk-import
+
+### cdk-cloudformation
+
+A collection of L1 constructs created with `cdk-import`, based on registry resource types.
+
+https://github.com/cdklabs/cdk-cloudformation
 
 ## Publishing packages
 

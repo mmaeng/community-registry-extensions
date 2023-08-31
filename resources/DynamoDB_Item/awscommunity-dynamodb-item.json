@@ -1,0 +1,185 @@
+{
+  "typeName": "AwsCommunity::DynamoDB::Item",
+  "description": "This resource will manage the lifecycle of items in a DynamoDB table",
+  "sourceUrl": "https://github.com/aws-cloudformation/community-registry-extensions.git",
+  "definitions": {
+    "MapAttribute": {
+      "patternProperties": {
+        "^[A-Za-z0-9_@./#&+-]{1,255}$": {
+          "$ref": "#/definitions/AttributeValue"
+        }
+      },
+      "additionalProperties": false
+    },
+    "AttributeValue": {
+      "properties": {
+        "BOOL": {
+          "type": "boolean"
+        },
+        "L": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AttributeValue"
+          },
+          "insertionOrder": true
+        },
+        "M": {
+          "$ref": "#/definitions/MapAttribute"
+        },
+        "N": {
+          "type": "string"
+        },
+        "NS": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "insertionOrder": true
+        },
+        "NULL": {
+          "type": "boolean"
+        },
+        "S": {
+          "type": "string"
+        },
+        "SS": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "insertionOrder": true
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "BOOL"
+          ]
+        },
+        {
+          "required": [
+            "L"
+          ]
+        },
+        {
+          "required": [
+            "M"
+          ]
+        },
+        {
+          "required": [
+            "N"
+          ]
+        },
+        {
+          "required": [
+            "NS"
+          ]
+        },
+        {
+          "required": [
+            "NULL"
+          ]
+        },
+        {
+          "required": [
+            "S"
+          ]
+        },
+        {
+          "required": [
+            "SS"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "Attribute": {
+      "patternProperties": {
+        "^[A-Za-z0-9_@./#&+-]{1,255}$": {
+          "$ref": "#/definitions/AttributeValue"
+        }
+      },
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Key": {
+      "properties": {
+        "AttributeName": {
+          "type": "string"
+        },
+        "AttributeType": {
+          "type": "string"
+        },
+        "AttributeValue": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "AttributeName",
+        "AttributeType",
+        "AttributeValue"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "Item": {
+      "$ref": "#/definitions/Attribute"
+    },
+    "Keys": {
+      "items": {
+        "$ref": "#/definitions/Key"
+      },
+      "insertionOrder": true,
+      "type": "array"
+    },
+    "TableName": {
+      "type": "string",
+      "description": "The table to put the item into"
+    },
+    "CompositeKey": {
+      "type": "string",
+      "description": "Composite Key is a combination of the partition and sort key values"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "TableName",
+    "Keys"
+  ],
+  "readOnlyProperties": [
+    "/properties/CompositeKey"
+  ],
+  "primaryIdentifier": [
+    "/properties/TableName",
+    "/properties/CompositeKey"
+  ],
+  "createOnlyProperties": [
+    "/properties/TableName",
+    "/properties/Key"
+  ],
+  "handlers": {
+    "create": {
+      "permissions": [
+        "dynamodb:PutItem"
+      ]
+    },
+    "read": {
+      "permissions": [
+        "dynamodb:GetItem"
+      ]
+    },
+    "update": {
+      "permissions": [
+        "dynamodb:PutItem"
+      ]
+    },
+    "delete": {
+      "permissions": [
+        "dynamodb:DeleteItem"
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "TableName": "{{TableForItemTest}}",
+  "Item": {
+    "title": {
+      "S": "one"
+    }
+  },
+  "Keys": [
+    {
+      "AttributeName": "pk",
+      "AttributeType": "S",
+      "AttributeValue": "foo"
+    }
+  ],
+  "CompositeKey": "foo"
+}

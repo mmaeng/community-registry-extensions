@@ -1,0 +1,52 @@
+name: resources-python-CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/resources-python-CI.yml"
+      - "resources/CloudFront_WebACLAssociation/**"
+      - "resources/DynamoDB_Item/**"
+  pull_request:
+    paths:
+      - ".github/workflows/resources-python-CI.yml"
+      - "resources/CloudFront_WebACLAssociation/**"
+      - "resources/DynamoDB_Item/**"
+jobs:
+  linux:
+    strategy:
+      matrix:
+        resource:
+          - CloudFront_WebACLAssociation
+          - DynamoDB_Item
+        include:
+          - resource: DynamoDB_Item
+            python_version: "3.9"
+            folder_name: awscommunity_dynamodb_item
+          - resource: CloudFront_WebACLAssociation
+            python_version: "3.7"
+            folder_name: awscommunity_cloudfront_webaclassociation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./resources/${{ matrix.resource }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python_version }}
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          if [[ -f requirements-dev.txt ]]
+          then
+            pip install -r requirements-dev.txt
+          fi
+          pip3 install pylint
+          pip3 install pytest
+      - name: Run Test
+        run: |
+          pylint --rcfile ../../config/.pylintrc src/${{ matrix.folder_name }}/*.py
+          pytest src

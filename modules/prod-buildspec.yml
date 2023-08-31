@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - echo Entered the install phase...
+      - echo About to build $MODULE_PATH
+      - export PATH="/usr/local/bin:$PATH"
+      - pip install git+https://github.com/aws-cloudformation/cloudformation-cli.git@master
+      - pip install git+https://github.com/aws-cloudformation/cloudformation-cli-python-plugin.git@master
+      - cd $MODULE_PATH
+      - which python
+      - python --version
+      - ls /usr/local/bin
+      - pip freeze
+      - cfn --version
+      - echo $PATH
+
+  build:
+    commands:
+      - echo Entered the build phase...
+      - ./setup.sh
+      - ls -l ../../release
+      - ../../release/publish-regions.sh
+    finally:
+      - cat rpdk.log
+      - ./cleanup.sh
+
+

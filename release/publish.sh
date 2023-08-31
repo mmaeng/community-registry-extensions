@@ -16,46 +16,19 @@
 set -eou pipefail
 
 export AWS_REGION=$1
-
-cfn validate
-cfn generate
-
+EXT_TYPE=$(cat .rpdk-config | jq -r .artifact_type)
 TYPE_NAME=$(cat .rpdk-config | jq -r .typeName)
 
+echo "About to publish $EXT_TYPE $TYPE_NAME to $AWS_REGION"
+
 # Create or update the setup stack
+SETUP_STACK_NAME="setup-prod-$(echo $TYPE_NAME | sed s/::/-/g | tr '[:upper:]' '[:lower:]')"
 if [ -f "test/setup.yml" ]
 then
-    SETUP_STACK_NAME="setup-prod-$(echo $TYPE_NAME | sed s/::/-/g | tr '[:upper:]' '[:lower:]')"
-    if ! aws cloudformation --region $AWS_REGION describe-stacks --stack-name $SETUP_STACK_NAME 2>&1 ; then
-        echo "Creating $SETUP_STACK_NAME"
-        aws cloudformation --region $AWS_REGION create-stack --stack-name $SETUP_STACK_NAME --template-body file://test/setup.yml
-        aws cloudformation --region $AWS_REGION wait stack-create-complete --stack-name $SETUP_STACK_NAME
-    else
-        echo "Updating $SETUP_STACK_NAME"
-        update_output=$(aws cloudformation --region $AWS_REGION update-stack --stack-name $SETUP_STACK_NAME --template-body file://test/setup.yml --capabilities CAPABILITY_IAM 2>&1 || [ $? -ne 0 ])
-        echo $update_output
-        if [[ $update_output == *"ValidationError"* && $update_output == *"No updates"* ]] ; then
-            echo "No updates to setup stack"
-        else
-            echo "Waiting for stack update to complete"
-            aws cloudformation --region $AWS_REGION wait stack-update-complete --stack-name $SETUP_STACK_NAME
-            # This just blocks forever if the previous command failed for another reason, 
-            # since it never sees update stack complete
-        fi
-    fi
+    rain deploy test/setup.yml $SETUP_STACK_NAME -y
 else
     echo "Did not find test/setup.yml, skipping setup stack"
 fi
-
-# Overwrite the role stack to fix the broken Condition.
-# test-type does not use the role we register, it re-deploys the stack
-cp resource-role-prod.yaml resource-role.yaml
-
-# Create the package
-echo "About to run cfn submit --dry-run to create the package"
-echo ""
-cfn submit --dry-run
-echo ""
 
 # For example, awscommunity-s3-deletebucketcontents
 TYPE_NAME_LOWER="$(echo $TYPE_NAME | sed s/::/-/g | tr '[:upper:]' '[:lower:]')"
@@ -71,55 +44,57 @@ PUBLISHING_ENABLED=0
 ACCOUNT_ID=$(aws sts get-caller-identity|jq -r .Account)
 echo "ACCOUNT_ID is $ACCOUNT_ID"
 
-if [ $"ACCOUNT_ID" == "387586997764" ]
+if [ "$ACCOUNT_ID" == "387586997764" ]
 then
     PUBLISHING_ENABLED=1
 fi
 
+echo "PUBLISHING_ENABLED: $PUBLISHING_ENABLED"
+
 HANDLER_BUCKET="cep-handler-${ACCOUNT_ID}"
 
-# Copy the package to S3
-echo "Copying schema package handler to $HANDLER_BUCKET"
-aws s3 cp $ZIPFILE s3://$HANDLER_BUCKET/$ZIPFILE
+# The execution role is not required by modules
+if [ "$EXT_TYPE" != "MODULE" ]
+then
+    EXT_TYPE_LOWER="$(echo $EXT_TYPE | tr '[:upper:]' '[:lower:]')"
+    echo "EXT_TYPE_LOWER is $EXT_TYPE_LOWER"
+    # Overwrite the role stack to fix the broken Condition.
+    # test-type does not use the role we register, it re-deploys the stack
+    cp $EXT_TYPE_LOWER-role-prod.yaml $EXT_TYPE_LOWER-role.yaml
 
-ROLE_STACK_NAME="$(echo $TYPE_NAME | sed s/::/-/g | tr '[:upper:]' '[:lower:]')-prod-role-stack"
-echo "ROLE_STACK_NAME is $ROLE_STACK_NAME"
-echo ""
-
-# Create or update the role stack
-if ! aws cloudformation --region $AWS_REGION describe-stacks --stack-name $ROLE_STACK_NAME 2>&1 ; then
-    echo "Creating role stack"
-    aws cloudformation --region $AWS_REGION create-stack --stack-name $ROLE_STACK_NAME --template-body file://resource-role-prod.yaml --capabilities CAPABILITY_IAM
+    ROLE_STACK_NAME="$(echo $TYPE_NAME | sed s/::/-/g | tr ‘[:upper:]’ ‘[:lower:]’)-prod-role-stack"
+    echo "ROLE_STACK_NAME is $ROLE_STACK_NAME"
     echo ""
-    aws cloudformation --region $AWS_REGION wait stack-create-complete --stack-name $ROLE_STACK_NAME
+
+    # Create or update the role stack
+    rain deploy $EXT_TYPE_LOWER-role.yaml $ROLE_STACK_NAME -y
+
+    echo "About to describe stack to get the role arn"
+    ROLE_ARN=$(aws --no-cli-pager cloudformation --region $AWS_REGION describe-stacks --stack-name $ROLE_STACK_NAME | jq ".Stacks|.[0]|.Outputs|.[0]|.OutputValue" | sed s/\"//g)
+    echo ""
+    echo "ROLE_ARN is $ROLE_ARN"
+    echo ""
+
+    # Register the resource or hook
+    echo "About to run register-type"
+    echo ""
+    TOKEN=$(aws --no-cli-pager cloudformation --region $AWS_REGION register-type --type $EXT_TYPE --type-name $TYPE_NAME --schema-handler-package s3://$HANDLER_BUCKET/$ZIPFILE --execution-role-arn $ROLE_ARN | jq -r .RegistrationToken)
+
+    echo "Registration token is $TOKEN"
+
 else
-    echo "Updating role stack"
-    update_output=$(aws cloudformation --region $AWS_REGION update-stack --stack-name $ROLE_STACK_NAME --template-body file://resource-role-prod.yaml --capabilities CAPABILITY_IAM 2>&1 || [ $? -ne 0 ])
-    echo $update_output
-    if [[ $update_output == *"ValidationError"* && $update_output == *"No updates"* ]] ; then
-        echo "No updates to role stack"
-    else
-        aws cloudformation --region $AWS_REGION wait stack-update-complete --stack-name $ROLE_STACK_NAME
-    fi
+    # Register the module
+    echo "About to run register-type"
+    echo ""
+    TOKEN=$(aws --no-cli-pager cloudformation --region $AWS_REGION register-type --type $EXT_TYPE --type-name $TYPE_NAME --schema-handler-package s3://$HANDLER_BUCKET/$ZIPFILE | jq -r .RegistrationToken)
+
+    echo "Registration token is $TOKEN"
 fi
-
-echo "About to describe stack to get the role arn"
-ROLE_ARN=$(aws cloudformation --region $AWS_REGION describe-stacks --stack-name $ROLE_STACK_NAME | jq ".Stacks|.[0]|.Outputs|.[0]|.OutputValue" | sed s/\"//g)
-echo ""
-echo "ROLE_ARN is $ROLE_ARN"
-echo ""
-
-# Register the type
-echo "About to run register-type"
-echo ""
-TOKEN=$(aws cloudformation --region $AWS_REGION register-type --type RESOURCE --type-name $TYPE_NAME --schema-handler-package s3://$HANDLER_BUCKET/$ZIPFILE --execution-role-arn $ROLE_ARN | jq -r .RegistrationToken)
-
-echo "Registration token is $TOKEN"
 
 STATUS="IN_PROGRESS"
 
 check_status() {
-    STATUS=$(aws cloudformation --region $AWS_REGION describe-type-registration --registration-token $TOKEN | jq -r .ProgressStatus)
+    STATUS=$(aws --no-cli-pager cloudformation --region $AWS_REGION describe-type-registration --registration-token $TOKEN | jq -r .ProgressStatus)
 }
 
 echo "About to poll status for $TOKEN"
@@ -132,39 +107,45 @@ done
 echo $STATUS
 
 echo "describe-type-registration"
-aws cloudformation --region $AWS_REGION describe-type-registration --registration-token $TOKEN
+aws --no-cli-pager cloudformation --region $AWS_REGION describe-type-registration --registration-token $TOKEN
 
 echo "describe-type"
-aws --no-cli-pager cloudformation --region $AWS_REGION describe-type --type RESOURCE --type-name $TYPE_NAME
+aws --no-cli-pager cloudformation --region $AWS_REGION describe-type --type $EXT_TYPE --type-name $TYPE_NAME
 
 sleep 5
 
 # Set this version to be the default
 echo "About to get latest version id"
-VERSION_ID=$(aws cloudformation --region $AWS_REGION describe-type-registration --registration-token $TOKEN | jq -r .TypeVersionArn | awk -F/ '{print $NF}')
+VERSION_ID=$(aws --no-cli-pager cloudformation --region $AWS_REGION describe-type-registration --registration-token $TOKEN | jq -r .TypeVersionArn | awk -F/ '{print $NF}')
 echo ""
 echo "VERSION_ID is $VERSION_ID"
 echo ""
 
 echo "About to set-type-default-version"
-aws cloudformation --region $AWS_REGION set-type-default-version --type RESOURCE --type-name $TYPE_NAME --version-id $VERSION_ID
+aws --no-cli-pager cloudformation --region $AWS_REGION set-type-default-version --type $EXT_TYPE --type-name $TYPE_NAME --version-id $VERSION_ID
 echo ""
 
-# Set the type configuration
-if [ -f "get_type_configuration.py" ]
+# Modules don't have type config
+if [ "$EXT_TYPE" != "MODULE" ]
 then
-    echo "About to set type configuration"
-    TYPE_CONFIG_PATH=$(python get_type_configuration.py)
-    echo "TYPE_CONFIG_PATH is $TYPE_CONFIG_PATH"
-    aws cloudformation set-type-configuration --type RESOURCE --type-name $TYPE_NAME --configuration-alias default --configuration $(cat ${TYPE_CONFIG_PATH} | jq -c "")
-else
-    echo "Did not find get_type_configuration.py, skipping type configuration"
+    # Set the type configuration
+    if [ -f "get_type_configuration.py" ]
+    then
+        echo "About to set type configuration"
+        TYPE_CONFIG_PATH=$(python get_type_configuration.py)
+        echo "TYPE_CONFIG_PATH is $TYPE_CONFIG_PATH"
+        aws --no-cli-pager cloudformation set-type-configuration --type $EXT_TYPE --type-name $TYPE_NAME --configuration-alias default --configuration $(cat ${TYPE_CONFIG_PATH} | jq -c "")
+    else
+        echo "Did not find get_type_configuration.py, skipping type configuration"
+    fi
 fi
+
+TEST_STATUS=""
 
 # Test the resource type
 echo "About to run test-type"
 echo ""
-TYPE_VERSION_ARN=$(aws cloudformation --region $AWS_REGION test-type --type RESOURCE --type-name $TYPE_NAME --log-delivery-bucket $HANDLER_BUCKET | jq .TypeVersionArn | sed s/\"//g)
+TYPE_VERSION_ARN=$(aws --no-cli-pager cloudformation --region $AWS_REGION test-type --type $EXT_TYPE --type-name $TYPE_NAME --log-delivery-bucket $HANDLER_BUCKET | jq .TypeVersionArn | sed s/\"//g)
 echo "TYPE_VERSION_ARN is $TYPE_VERSION_ARN"
 echo ""
 
@@ -172,7 +153,7 @@ TEST_STATUS="IN_PROGRESS"
 
 echo "About to poll test status for $TYPE_VERSION_ARN"
 check_test_status() {
-    TEST_STATUS=$(aws cloudformation --region $AWS_REGION describe-type --arn $TYPE_VERSION_ARN | jq -r .TypeTestsStatus)
+    TEST_STATUS=$(aws --no-cli-pager cloudformation --region $AWS_REGION describe-type --arn $TYPE_VERSION_ARN | jq -r .TypeTestsStatus)
 }
 
 # Check status
@@ -188,7 +169,7 @@ echo $TEST_STATUS
 if [ "$PUBLISHING_ENABLED" -eq 1 ]
 then
     echo "About to publish $TYPE_NAME in $AWS_REGION"
-    aws cloudformation --region $AWS_REGION publish-type --type RESOURCE --type-name $TYPE_NAME
+    aws --no-cli-pager cloudformation --region $AWS_REGION publish-type --type $EXT_TYPE --type-name $TYPE_NAME
 else
     echo "PUBLISHING_ENABLED is $PUBLISHING_ENABLED, not publishing"
 fi
@@ -197,8 +178,12 @@ fi
 # This is mainly for sandbox accounts where it would conflict with alpha
 if [ -f "test/setup.yml" ]
 then
-    SETUP_STACK_NAME="setup-prod-$(echo $TYPE_NAME | sed s/::/-/g | tr '[:upper:]' '[:lower:]')"
-    aws cloudformation delete-stack --stack-name $SETUP_STACK_NAME
+    rain rm $SETUP_STACK_NAME -y
+fi
+
+if [ "$TEST_STATUS" == "FAILED" ] 
+then
+    exit 1    
 fi
 
 echo "Done"

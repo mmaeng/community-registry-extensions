@@ -1,0 +1,19 @@
+{
+  "TableName": "{{TableForItemTest}}",
+  "Item": {
+    "title": {
+      "S": "one"
+    },
+    "authors": {
+      "SS": ["Me", "You"]
+    }
+  },
+  "Keys": [
+    {
+      "AttributeName": "pk",
+      "AttributeType": "S",
+      "AttributeValue": "foo"
+    }
+  ],
+  "CompositeKey": "foo"
+}
